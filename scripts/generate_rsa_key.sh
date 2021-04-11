@@ -1,0 +1,1 @@
+go run labsystem/cmd/rsa_key_generator

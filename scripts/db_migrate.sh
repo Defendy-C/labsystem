@@ -1,0 +1,1 @@
+go run labsystem/cmd/db_migrate

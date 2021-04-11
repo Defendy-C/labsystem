@@ -1,0 +1,12 @@
+[mysql]
+host = "127.0.0.1"
+port = 3306
+user_name = "root"
+password = "root"
+db_name = "labsystem"
+
+[redis]
+host = "127.0.0.1"
+port = 6379
+password = ""
+db = 10

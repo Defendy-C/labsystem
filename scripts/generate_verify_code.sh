@@ -1,0 +1,1 @@
+go run labsystem/cmd/verify_code_generator
