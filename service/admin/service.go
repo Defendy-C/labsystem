@@ -85,7 +85,7 @@ func (s *service) Login(nickName, password, key string, vcode int) (token string
 	com := obj.([]*model.Admin)
 	if err != nil || len(com) <= 0 {
 		logger.Log.Warn("query admin failed", zap.Any("filter", filter), zap.Error(err))
-		return
+		return "", srverr.ErrLoginFailed
 	}
 	if ok := rsa.Compare(com[0].Password, password); !ok {
 		logger.Log.Warn("password error", zap.String("expected", com[0].Password), zap.String("actual", password))

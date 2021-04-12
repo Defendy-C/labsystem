@@ -12,6 +12,7 @@ var (
 	ErrDownload        = errors.New("下载失败")
 	ErrInvalidParams   = errors.New("请求参数无效或缺失")
 	ErrLoginFailed    = errors.New("用户名或密码错误")
+	ErrUpdateFailed   = errors.New("更新失败")
 
 	// -------------- admin ---------------
 	ErrInvalidCreator = errors.New("invalid admin, do you really an admin ？")

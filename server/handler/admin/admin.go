@@ -1,17 +1,35 @@
 package admin
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"labsystem/model"
 	"labsystem/model/srverr"
 	"labsystem/server/handler"
 	adminSrv "labsystem/service/admin"
+	"labsystem/util/rsa"
 	"net/http"
 )
 
 type HandlerAdmin struct {
 	Srv adminSrv.ServiceAdmin
 	handles []*handler.Handle
+}
+
+func (h *HandlerAdmin) verifyAdmin(ctx *gin.Context) (*model.Admin) {
+	uid, ok := ctx.Keys["uid"]
+	if !ok {
+		return nil
+	}
+	if rid, ok := ctx.Keys["rid"]; !ok || int(rid.(float64)) != model.Administrator.Int() {
+		return nil
+	}
+	admin := h.Srv.QueryAdminById(uint(uid.(float64)))
+	if admin == nil {
+		return nil
+	}
+
+	return admin
 }
 
 func (h *HandlerAdmin) RegisterAdminHandles(rg *gin.RouterGroup, authRg *gin.RouterGroup) {
@@ -24,6 +42,7 @@ func (h *HandlerAdmin) RegisterAdminHandles(rg *gin.RouterGroup, authRg *gin.Rou
 		authRg.POST("/info", h.adminInfo)
 		authRg.POST("/list", h.adminList)
 		authRg.POST("/create", h.createAdmin)
+		authRg.POST("/update", h.updateAdmin)
 	}
 }
 
@@ -43,18 +62,9 @@ func (h *HandlerAdmin)login(ctx *gin.Context) {
 }
 
 func (h *HandlerAdmin)adminInfo(ctx *gin.Context) {
-	uid, ok := ctx.Keys["uid"]
-	if !ok {
-		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden, nil))
-		return
-	}
-	if rid, ok := ctx.Keys["rid"]; !ok || int(rid.(float64)) != model.Administrator.Int() {
-		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden, nil))
-		return
-	}
-	admin := h.Srv.QueryAdminById(uint(uid.(float64)))
+	admin := h.verifyAdmin(ctx)
 	if admin == nil {
-		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrSystemException ,nil))
+		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden ,nil))
 		return
 	}
 	resp := new(InfoResp)
@@ -72,6 +82,11 @@ func (h *HandlerAdmin)adminInfo(ctx *gin.Context) {
 }
 
 func (h *HandlerAdmin)adminList(ctx *gin.Context) {
+	admin := h.verifyAdmin(ctx)
+	if admin == nil {
+		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden ,nil))
+		return
+	}
 	var req *ListReq
 	if err := ctx.BindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrInvalidParams, nil))
@@ -105,19 +120,49 @@ func (h *HandlerAdmin)adminList(ctx *gin.Context) {
 }
 
 func (h *HandlerAdmin)createAdmin(ctx *gin.Context) {
+	admin := h.verifyAdmin(ctx)
+	if admin == nil {
+		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden ,nil))
+		return
+	}
 	var req *CreateAdminReq
-	if err := ctx.BindJSON(&req); err != nil || req.Valid() {
+	if err := ctx.BindJSON(&req); err != nil || !req.Valid() {
 		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrInvalidParams, nil))
 		return
 	}
-
 	p, _ := model.IntToPower(req.Power)
 	if err := h.Srv.CreateAdmin(&model.Admin{
 		NickName: req.Name,
 		Password: req.Password,
 		Power: p,
+		CreatedBy: admin.NickName,
 	}); err != nil {
 		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrSystemException, nil))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, handler.NewResp(nil, nil))
+}
+
+func (h *HandlerAdmin)updateAdmin(ctx *gin.Context) {
+	admin := h.verifyAdmin(ctx)
+	if admin == nil {
+		ctx.JSON(http.StatusForbidden, handler.NewResp(srverr.ErrForbidden ,nil))
+		return
+	}
+	var req *UpdateAdminReq
+	if err := ctx.BindJSON(&req); err != nil || !req.Valid() {
+		fmt.Println(1)
+		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrInvalidParams, nil))
+		return
+	}
+	if ok := rsa.Compare(admin.Password, req.OldPassword); !ok {
+		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrInvalidParams, nil))
+		return
+	}
+	ok := h.Srv.UpdateAdmin(admin.ID, req.Name, req.NewPassword)
+	if !ok {
+		ctx.JSON(http.StatusBadRequest, handler.NewResp(srverr.ErrUpdateFailed, nil))
 		return
 	}
 

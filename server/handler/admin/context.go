@@ -57,9 +57,9 @@ type ListResp struct {
 }
 
 type CreateAdminReq struct {
-	Name string
-	Password string
-	Power int
+	Name string `json:"name"`
+	Password string `json:"password"`
+	Power int `json:"power"`
 }
 
 func (req *CreateAdminReq)Valid() bool {
@@ -70,10 +70,42 @@ func (req *CreateAdminReq)Valid() bool {
 	if err = util.StringFormatVerify(req.Name, model.RegExpUserName); err != nil {
 		return false
 	}
-	if req.Password, err = rsa.Decrypt(req.Password); err != nil {
+	var pwd string
+	if pwd, err = rsa.Decrypt(req.Password); err != nil {
 		return false
 	}
-	if err := util.StringFormatVerify(req.Password, model.RegExpPassword); err != nil {
+	if err := util.StringFormatVerify(pwd, model.RegExpPassword); err != nil {
+		return false
+	}
+
+	return true
+}
+
+type UpdateAdminReq struct {
+	Name string `json:"name"`
+	NewPassword string `json:"new_password"`
+	OldPassword string `json:"old_password"`
+}
+
+func (req *UpdateAdminReq)Valid() bool {
+	var err error
+	if err = util.StringFormatVerify(req.Name, model.RegExpUserName); err != nil {
+		return false
+	}
+	var newPwd, oldPwd string
+	if newPwd, err = rsa.Decrypt(req.NewPassword); err != nil {
+		return false
+	}
+	if oldPwd, err = rsa.Decrypt(req.OldPassword); err != nil {
+		return false
+	}
+	if err := util.StringFormatVerify(newPwd, model.RegExpPassword); err != nil {
+		return false
+	}
+	if err := util.StringFormatVerify(oldPwd, model.RegExpPassword); err != nil {
+		return false
+	}
+	if newPwd == oldPwd {
 		return false
 	}
 
