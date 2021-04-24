@@ -7,13 +7,17 @@ type User struct {
 	RealName   string `gorm:"unique"`
 	Password   string
 	Status     UserStatus
-	Class      uint
+	Class      string
 	ProfileUrl string `go:"unique"` // profile url
-	CreatedBy  uint
+	CreatedBy  string
 }
 
 // status
 type UserStatus uint
+
+func (s *UserStatus)Uint() uint {
+	return uint(*s)
+}
 
 const (
 	Teacher = iota

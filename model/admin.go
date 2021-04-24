@@ -11,7 +11,7 @@ type Admin struct {
 	NickName  string `gorm:"unique"`
 	Password  string
 	Power     Power
-	CreatedBy string
+	CreatedBy uint
 }
 
 type Power int
@@ -20,6 +20,8 @@ const (
 	PowerNone        Power = 0
 	PowerCreateAdmin Power      = 1 << iota
 	PowerCreateTeacher
+	PowerDeleteUser
+	PowerCreateClass
 	PowerAll = 1<<iota - 1
 )
 
@@ -67,5 +69,9 @@ var PowerList = []struct {
 	{
 		PowerCreateTeacher,
 		"创建教师用户",
+	},
+	{
+		PowerCreateClass,
+		"创建班级",
 	},
 }

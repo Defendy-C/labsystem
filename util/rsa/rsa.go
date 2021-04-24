@@ -66,6 +66,24 @@ func GetRSAPublicKey(pubPEM []byte) (pub *rsa.PublicKey, err error) {
 	return
 }
 
+func Encrypt(raw string) (enText string, err error) {
+	publicKeyPem, err := util.ReadAll(configs.CurProjectPath() + configs.RSAPublicKeyPEM)
+	if err != nil {
+		return "", err
+	}
+	publicKey, err := GetRSAPublicKey(publicKeyPem)
+	if err != nil {
+		return "", err
+	}
+	enBytes, err := rsa.EncryptPKCS1v15(rand.Reader, publicKey, []byte(raw))
+	if err != nil {
+		return "", err
+	}
+	enText = base64.StdEncoding.EncodeToString(enBytes)
+
+	return
+}
+
 func Decrypt(enText string) (deText string, err error) {
 	// base64 decode
 	var deBase64Text, deByteText []byte

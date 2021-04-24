@@ -35,7 +35,7 @@ func (s *UserDaoTestSuite) TestCreate() {
 			RealName: "Alice One",
 			Password: "123456",
 			Status: model.Student,
-			Class: 1,
+			Class: "1",
 			ProfileUrl: "123.com",
 		}, {
 			BaseModel: model.BaseModel{ID: 2},
@@ -43,7 +43,7 @@ func (s *UserDaoTestSuite) TestCreate() {
 			RealName: "Ben Two",
 			Password: "123456",
 			Status: model.Teacher,
-			Class: 1,
+			Class: "1",
 			ProfileUrl: "123.com",
 		}, {
 			BaseModel: model.BaseModel{ID: 3},
@@ -51,7 +51,7 @@ func (s *UserDaoTestSuite) TestCreate() {
 			RealName: "Chale Three",
 			Password: "123456",
 			Status: model.Student,
-			Class: 1,
+			Class: "1",
 			ProfileUrl: "123.com",
 		}, {
 			BaseModel: model.BaseModel{ID: 4},
@@ -59,7 +59,7 @@ func (s *UserDaoTestSuite) TestCreate() {
 			RealName: "Ding Four",
 			Password: "123456",
 			Status: model.Teacher,
-			Class: 1,
+			Class: "1",
 			ProfileUrl: "123.com",
 		},
 	}
@@ -68,7 +68,7 @@ func (s *UserDaoTestSuite) TestCreate() {
 		s.NoError(s.db.Create(users[i]))
 	}
 
-	filter := &FilterUser{ID: []int{1, 2}}
+	filter := &FilterUser{ID: []uint{1, 2}}
 	list, err := s.db.Query(filter)
 	s.NoError(err)
 	s.Len(list, 2)

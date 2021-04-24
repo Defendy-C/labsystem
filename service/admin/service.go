@@ -7,6 +7,7 @@ import (
 	"labsystem/model"
 	"labsystem/model/srverr"
 	commonSrv "labsystem/service"
+	classSrv "labsystem/service/class"
 	userSrv "labsystem/service/user"
 	"labsystem/util/jwt"
 	"labsystem/util/logger"
@@ -15,24 +16,22 @@ import (
 
 var _ ServiceAdmin = &service{}
 
-func NewAdminService(userService userSrv.InternalUserSrv, commonService commonSrv.Service) *service {
+func NewAdminService(userService userSrv.InternalUserSrv, classService classSrv.InternalClassSrv, commonService commonSrv.Service) *service {
 	return &service{
 		dao: adminDao.NewAdminDao(),
 		userSrv: userService,
 		commonSrv: commonService,
+		classSrv: classService,
 	}
 }
 
 func (s *service) CreateAdmin(admin *model.Admin) error {
 	// verify createdBy
-	creator := s.QueryAdminByName(admin.CreatedBy)
+	creator := s.QueryAdminById(admin.CreatedBy)
 	if creator == nil {
 		return srverr.ErrInvalidCreator
 	}
-	// verify power
-	if !creator.Power.Own(model.PowerCreateAdmin) || !creator.Power.Own(admin.Power) {
-		return srverr.ErrOwnPower
-	}
+
 	return s.dao.Create(admin)
 }
 
@@ -106,8 +105,11 @@ func (s *service) Login(nickName, password, key string, vcode int) (token string
 }
 
 func (s *service) CreateTeacher(user *model.User) error {
-	user.Status = model.Teacher
 	return s.userSrv.CreateUser(user)
+}
+
+func (s *service) CreateClass(class *model.Class) error {
+	return s.classSrv.CreateClass(class)
 }
 
 func (s *service) AdminList(opt *ListOpt, page, pageSize uint) (list []*model.Admin, totalPage, count uint) {
@@ -118,8 +120,8 @@ func (s *service) AdminList(opt *ListOpt, page, pageSize uint) (list []*model.Ad
 		},
 	}
 	if opt != nil {
-		if opt.CreatedBy != "" {
-			filter.CreatedBy = []string{opt.CreatedBy}
+		if opt.CreatedBy != 0 {
+			filter.CreatedBy = []uint{opt.CreatedBy}
 		}
 		filter.SetCreatedAtRange(opt.CreatedMin, opt.CreatedMax)
 		if opt.OrderFiled.ToString() != "" {
@@ -196,15 +198,34 @@ func (s *service) UpdatePower(operatorId, adminId uint, add, remove int) bool {
 }
 
 func (s *service) UpdateAdmin(uid uint, nickName string, password string) bool {
+	fields := map[string]interface{} {
+		"nick_name": nickName,
+	}
+	if password != "" {
+		fields["password"] = password
+	}
 	if err := s.dao.Update(map[string]interface{}{
 		"id": uid,
-	}, map[string]interface{}{
-		"nick_name": nickName,
-		"password": password,
-	});err != nil {
+	}, fields);err != nil {
 		logger.Log.Warn("update admin failed", zap.Error(err))
 		return false
 	}
 
 	return true
+}
+
+func (s *service) UserList(page, pageSize uint) (list []*model.User, totalPage, totalCount uint) {
+	return s.userSrv.List(page, pageSize)
+}
+
+func (s *service) DeleteUsers(ids []uint) bool {
+	if err := s.userSrv.DeleteUsers(ids); err != nil {
+		logger.Log.Warn("delete user failed", zap.Error(err))
+		return false
+	}
+	return true
+}
+
+func (s *service) ClassList(page, pageSize uint) (list []*model.Class, totalPage, totalCount uint) {
+	return s.classSrv.List(nil, page, pageSize)
 }

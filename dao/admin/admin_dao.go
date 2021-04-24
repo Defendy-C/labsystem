@@ -10,7 +10,7 @@ type FilterAdmin struct {
 	dao.BaseFilter
 	ID        []uint
 	NickName  []string
-	CreatedBy []string
+	CreatedBy []uint
 }
 type DaoAdmin interface {
 	dao.BaseDao

@@ -49,4 +49,6 @@ const (
 	RegExpUserNo = `^\d{9}$`
 	RegExpUserName = `^[0-9a-zA-Z]{4,10}$`
 	RegExpPassword = `^\S{6,16}$`
+	RegExpClass = `^\d{4}$`
+	ReqExpRealName = "^[\u4e00-\u9fa5a-zA-z]+[ ]?[\u4e00-\u9fa5a-zA-z]+$"
 )

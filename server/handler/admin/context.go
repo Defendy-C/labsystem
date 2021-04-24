@@ -26,6 +26,7 @@ func (req *loginReq) Valid() bool {
 }
 
 type InfoResp struct {
+	Id     uint          `json:"id"`
 	Name   string        `json:"name"`
 	Powers []*PowerOwner `json:"powers"`
 }
@@ -37,7 +38,7 @@ type PowerOwner struct {
 }
 
 type ListReq struct {
-	CreatedBy string `json:"created_by"`
+	CreatedBy uint   `json:"created_by"`
 	Page      uint   `json:"page"`
 	PageSize  uint   `json:"page_size"`
 }
@@ -93,21 +94,109 @@ func (req *UpdateAdminReq)Valid() bool {
 		return false
 	}
 	var newPwd, oldPwd string
-	if newPwd, err = rsa.Decrypt(req.NewPassword); err != nil {
+	if newPwd != "" {
+		if newPwd, err = rsa.Decrypt(req.NewPassword); err != nil {
+			return false
+		}
+		if oldPwd, err = rsa.Decrypt(req.OldPassword); err != nil {
+			return false
+		}
+		if err := util.StringFormatVerify(newPwd, model.RegExpPassword); err != nil {
+			return false
+		}
+		if err := util.StringFormatVerify(oldPwd, model.RegExpPassword); err != nil {
+			return false
+		}
+		if newPwd == oldPwd {
+			return false
+		}
+	}
+
+	return true
+}
+
+type DeleteAdminReq struct {
+	ID uint `json:"id"`
+}
+
+type CreateTeacherReq struct {
+	UserNo   string `json:"user_no"`
+	RealName string `json:"real_name"`
+	Password string `json:"password"`
+	Class    string `json:"class"`
+	FileName string `json:"file_name"`
+}
+
+func (req *CreateTeacherReq) Valid() bool {
+	if err := util.StringFormatVerify(req.UserNo, model.RegExpUserNo); err != nil {
 		return false
 	}
-	if oldPwd, err = rsa.Decrypt(req.OldPassword); err != nil {
+	if err := util.StringFormatVerify(req.RealName, model.ReqExpRealName); err != nil {
 		return false
 	}
-	if err := util.StringFormatVerify(newPwd, model.RegExpPassword); err != nil {
+	pwd, err := rsa.Decrypt(req.Password)
+	if err != nil {
 		return false
 	}
-	if err := util.StringFormatVerify(oldPwd, model.RegExpPassword); err != nil {
-		return false
-	}
-	if newPwd == oldPwd {
+	if err := util.StringFormatVerify(pwd, model.RegExpPassword); err != nil {
 		return false
 	}
 
 	return true
+}
+
+type CreateClassReq struct {
+	ClassNo string `json:"class_no"`
+}
+
+func (req *CreateClassReq) Valid() bool {
+	err := util.StringFormatVerify(req.ClassNo, model.RegExpClass)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+type UserListReq struct {
+	Page uint `json:"page"`
+	PageSize uint `json:"page_size"`
+}
+
+type UserItem struct {
+	ID uint `json:"id"`
+	UserNo string `json:"user_no"`
+	RealName string `json:"real_name"`
+	Status model.UserStatus `json:"status"`
+	Class string `json:"class"`
+	ProfileUrl string `json:"profile_url"`
+	CreatedBy string `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type UserListResp struct {
+	List []*UserItem `json:"list"`
+	TotalPage uint `json:"total_page"`
+	TotalCount uint `json:"total_count"`
+}
+
+type ClassListReq struct {
+	Page uint `json:"page"`
+	PageSize uint `json:"page_size"`
+}
+
+type ClassItem struct {
+	ID uint `json:"id"`
+	ClassNo string `json:"class_no"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type ClassListResp struct {
+	List []*ClassItem `json:"list"`
+	TotalPage uint `json:"total_page"`
+	TotalCount uint `json:"total_count"`
+}
+
+type DeleteUsersReq struct {
+	Ids []uint `json:"ids"`
 }

@@ -63,10 +63,13 @@ func (f *BaseFilter) PageScope(db *gorm.DB) *gorm.DB {
 		return db
 	}
 	var length int64
-	db.Count(&length)
+	db.Where("deleted_at is null").Count(&length)
 	f.TotalCount = uint(length)
-	f.TotalPage = (f.TotalCount-1)/f.PerPage + 1
-
+	if f.TotalCount == 0 {
+		f.PerPage = 0
+	} else {
+		f.TotalPage = (f.TotalCount-1)/f.PerPage + 1
+	}
 	return db.Offset(int((f.Page - 1) * f.PerPage)).Limit(int(f.PerPage))
 }
 

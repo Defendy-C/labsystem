@@ -6,6 +6,7 @@ import (
 	adminDao "labsystem/dao/admin"
 	"labsystem/model"
 	common "labsystem/service"
+	"labsystem/service/class"
 	"labsystem/service/user"
 	"labsystem/util/logger"
 	"time"
@@ -14,13 +15,17 @@ import (
 type ServiceAdmin interface {
 	CreateAdmin(admin *model.Admin) error
 	CreateTeacher(user *model.User) error
+	CreateClass(class *model.Class) error
 	Login(nickName, password, key string, vcode int) (token string, err error)
 	QueryAdminById(id uint) *model.Admin
 	QueryAdminByName(name string) *model.Admin
 	AdminList(opt *ListOpt, page, pageSize uint) (list []*model.Admin, totalPage, count uint)
 	DeleteAdmin(operatorId uint, adminId uint) bool
+	DeleteUsers(ids []uint) bool
 	UpdatePower(operatorId, adminId uint, add, remove int) bool
 	UpdateAdmin(uid uint, nickName string, password string) bool
+	UserList(page, pageSize uint) (list []*model.User, totalPage, count uint)
+	ClassList(page, pageSize uint) (list []*model.Class, totalPage, totalCount uint)
 }
 
 type OrderField string
@@ -32,7 +37,7 @@ func (f OrderField)ToString() string {
 }
 
 type ListOpt struct {
-	CreatedBy  string
+	CreatedBy  uint
 	CreatedMin *time.Time
 	CreatedMax *time.Time
 	OrderFiled OrderField
@@ -52,6 +57,7 @@ func (opt *ListOpt) OrderPad() (string, dao.OrderTyp) {
 type service struct {
 	dao adminDao.DaoAdmin
 	userSrv user.InternalUserSrv
+	classSrv class.InternalClassSrv
 	commonSrv common.Service
 }
 
@@ -81,7 +87,7 @@ func (s *service) checkAdmin(operatorId, adminId uint) (operator, admin *model.A
 		}
 	}
 
-	if admin == nil || operator == nil || admin.CreatedBy != operator.NickName {
+	if admin == nil || operator == nil || admin.CreatedBy != operator.ID {
 		return nil, nil
 	}
 

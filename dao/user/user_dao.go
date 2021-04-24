@@ -22,8 +22,8 @@ func NewUserDao() *userDao {
 }
 
 type FilterUser struct {
-	dao.BaseFilter
-	ID    []int
+	*dao.BaseFilter
+	ID    []uint
 	UserNo [] string
 	RealName []string
 }
@@ -41,7 +41,7 @@ func (u userDao) Query(filter dao.Filter) (interface{}, error) {
 	if !ok {
 		return nil, gorm.ErrInvalidData
 	}
-	db := u.SQL
+	db := u.SQL.Model(&model.User{})
 	switch len(userFilter.ID) {
 	case 0:
 	case 1:
@@ -55,11 +55,13 @@ func (u userDao) Query(filter dao.Filter) (interface{}, error) {
 	if len(userFilter.RealName) > 0 {
 		db = db.Where("real_name in (?)", userFilter.RealName)
 	}
-	if userFilter.Sort != nil {
-		db = db.Order(userFilter.OrderBy())
-	}
+	if userFilter.BaseFilter!= nil {
+		if userFilter.Sort != nil {
+			db = db.Order(userFilter.OrderBy())
+		}
 
-	db = db.Scopes(userFilter.PageScope)
+		db = db.Scopes(userFilter.PageScope)
+	}
 
 	var users []*model.User
 	return users, db.Find(&users).Error
@@ -70,7 +72,11 @@ func (u userDao) Update(cond map[string]interface{}, changed map[string]interfac
 }
 
 func (u userDao) Delete(m map[string]interface{}) error {
-	panic("implement me")
+	db := u.SQL.Where("1 = 1") // soft delete require where
+	if m != nil {
+		db = db.Where(m)
+	}
+	return db.Debug().Delete(&model.User{}).Error
 }
 
 func (u userDao) Clear() {

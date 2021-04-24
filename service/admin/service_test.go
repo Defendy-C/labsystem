@@ -9,6 +9,7 @@ import (
 	srv "labsystem/service"
 	classSrv "labsystem/service/class"
 	userSrv "labsystem/service/user"
+	"labsystem/util/rsa"
 	"testing"
 	"time"
 )
@@ -30,14 +31,19 @@ func (s *AdminSrvSuite) SetT(t *testing.T) {
 	s.Suite.SetT(t)
 	s.Assertions = require.New(t)
 	s.dao = adminDao.NewAdminDao()
-	s.srv = NewAdminService( userSrv.NewUserService(classSrv.NewClassService()), srv.NewService())
+	base := srv.NewService()
+	classService := classSrv.NewClassService()
+	userService := userSrv.NewUserService(base, classService)
+	s.srv = NewAdminService(userService, classService, base)
 }
 
 func (s *AdminSrvSuite) SetupTest() {
 	s.NoError(s.dao.Truncate())
+	enPwd, err :=  rsa.Encrypt("123456")
+	s.NoError(err)
 	root := &model.Admin{
 		NickName:  "root",
-		Password:  "123456",
+		Password:  enPwd,
 		Power:     model.PowerAll,
 	}
 	s.NoError(s.dao.Create(root))
@@ -63,7 +69,7 @@ func (s *AdminSrvSuite) TestCreateAdmin() {
 	}
 	s.NoError(s.srv.CreateAdmin(operator1))
 	s.NoError(s.srv.CreateAdmin(operator2))
-	s.Error(s.srv.CreateAdmin(&model.Admin{
+	s.NoError(s.srv.CreateAdmin(&model.Admin{
 		NickName: "admin",
 		Password: "123456",
 		Power: model.PowerCreateTeacher,
@@ -76,7 +82,7 @@ func (s *AdminSrvSuite) TestCreateAdmin() {
 		CreatedBy: "operator1",
 	}))
 	s.NoError(s.srv.CreateAdmin(&model.Admin{
-		NickName: "admin",
+		NickName: "admin2",
 		Password: "123456",
 		Power: model.PowerCreateAdmin,
 		CreatedBy: "operator1",
@@ -240,5 +246,14 @@ func (s *AdminSrvSuite) TestUpdateAdmin() {
 	s.Len(list, 1)
 	obj := list.([]*model.Admin)[0]
 	s.Equal("admin1", obj.NickName)
+	s.Equal("234567", obj.Password)
+	s.True(s.srv.UpdateAdmin(admin.ID, "admin2", ""))
+	list, err = s.dao.Query(&adminDao.FilterAdmin{
+		ID: []uint{admin.ID},
+	})
+	s.NoError(err)
+	s.Len(list, 1)
+	obj = list.([]*model.Admin)[0]
+	s.Equal("admin2", obj.NickName)
 	s.Equal("234567", obj.Password)
 }

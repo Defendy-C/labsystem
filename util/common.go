@@ -1,11 +1,13 @@
 package util
 
 import (
+	cRand "crypto/rand"
 	"errors"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -45,4 +47,12 @@ func StringFormatVerify(adminName string, exp string) error {
 	}
 
 	return nil
+}
+
+func Uuid() string {
+	now := time.Now().UnixNano()
+	randBytes := make([]byte, 16)
+	cRand.Read(randBytes)
+
+	return strconv.Itoa(int(now)) + string(randBytes)
 }

@@ -3,21 +3,14 @@ package user
 import (
 	"encoding/json"
 	"go.uber.org/zap"
-	"golang.org/x/crypto/bcrypt"
 	userDao "labsystem/dao/user"
 	"labsystem/model"
 	"labsystem/model/srverr"
 	"labsystem/util/jwt"
 	"labsystem/util/logger"
+	"labsystem/util/rsa"
 	"strconv"
 )
-
-type ServiceUser interface {
-	RegisterStudent(user *model.User, checker int) error
-	CheckStudent(operator string, user string) error
-	CheckList(operator int) ([]*model.User, error)
-	Login(userNo, password, key string, vCode string) (token string, err error)
-}
 
 var _ ServiceUser = &service{}
 
@@ -63,13 +56,29 @@ func (s service) CheckList(operator int) (us []*model.User, err error) {
 	return
 }
 
-func (s service) RegisterStudent(user *model.User, checker int) error {
-	// verify checker
+func (s service) RegisterStudent(user *model.User, checker string, key string, vcode int) error {
+	// verify vcode
+	if !s.baseSrv.VerifyCode(key, vcode) {
+		return srverr.ErrVerify
+	}
+	if err := s.dao.CDelete(key); err != nil {
+		logger.Log.Warn("cache key delete failed", zap.String("key", key), zap.Error(err))
+	}
+	// verify
+	// verify checker user
 	t, err := s.dao.Query(&userDao.FilterUser{
-		ID: []int{checker},
+		UserNo: []string{user.UserNo, checker},
 	})
-	if err != nil || len(t.([]*model.User)) <= 0 {
-		logger.Log.Warn("student register: invalid checker", zap.Int("checker", checker), zap.Error(err))
+	implement := t.([]*model.User)
+	if len(implement) > 1 {
+		return srverr.ErrRegisterExisted
+	}
+	if err != nil || len(implement) <= 0 || implement[0].UserNo != checker {
+		logger.Log.Warn("student register: invalid checker", zap.String("checker", checker), zap.Error(err))
+		return srverr.ErrRegisterChecker
+	}
+	u := implement[0]
+	if u.Status != model.Teacher {
 		return srverr.ErrRegisterChecker
 	}
 	// verify class
@@ -79,16 +88,10 @@ func (s service) RegisterStudent(user *model.User, checker int) error {
 	}
 	err = s.classSrv.CheckClass(user.Class)
 	if err != nil {
-		logger.Log.Warn("class not exist", zap.Uint("class", user.Class), zap.Error(err))
+		logger.Log.Warn("class not exist", zap.String("class", user.Class), zap.Error(err))
 	}
 	// convert json
 	user.Status = model.Student
-	pwd, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Log.Warn("password crypt failed", zap.String("pwd", user.Password))
-		return srverr.ErrSystemException
-	}
-	user.Password = string(pwd)
 	j, err := json.Marshal(user)
 	if err != nil {
 		logger.Log.Warn("student register: marshal failed", zap.Any("user", user), zap.Error(err))
@@ -96,12 +99,14 @@ func (s service) RegisterStudent(user *model.User, checker int) error {
 	}
 
 	// put register info to cache for checking
-	return s.dao.CHashAdd("REGISTER_CHECK-" + strconv.Itoa(checker), strconv.Itoa(int(user.ID)), string(j))
+	cacheKey := "REGISTER_CHECK-" + strconv.Itoa(int(u.ID))
+	field := strconv.Itoa(int(user.ID))
+	return s.dao.CHashAdd(cacheKey, field, string(j))
 }
 
-func (s service) Login(userNo, password, key, vCode string) (token string, err error) {
+func (s service) Login(userNo, password, key string, vCode int) (token string, err error) {
 	// verify vCode
-	if v := s.dao.CGet(key); v != vCode {
+	if !s.baseSrv.VerifyCode(key, vCode) {
 		return "", srverr.ErrVerify
 	}
 	// verify user existence
@@ -120,13 +125,15 @@ func (s service) Login(userNo, password, key, vCode string) (token string, err e
 		return "", srverr.ErrLoginFailed
 	}
 	// verify password
-	if err := bcrypt.CompareHashAndPassword([]byte(user[0].Password), []byte(password)); err != nil {
-		logger.Log.Warn("login failed", zap.String("expected hash", user[0].Password), zap.String("actual password", password), zap.Error(err))
+	if ok := rsa.Compare(password, user[0].Password); !ok {
 		return "", srverr.ErrLoginFailed
 	}
 	// generate token
 	token, err = jwt.Token(map[string]interface{}{
-		"Id": user[0].ID,
+		"uid": user[0].ID,
+		"rid": model.Visitor,
+		"u_rid": user[0].Status,
+
 	})
 	if err != nil {
 		logger.Log.Warn("login failed", zap.Uint("userId", user[0].ID), zap.Error(err))
@@ -134,4 +141,21 @@ func (s service) Login(userNo, password, key, vCode string) (token string, err e
 	}
 
 	return
+}
+
+func (s *service) Info(uid uint) *model.User {
+	raw, err := s.dao.Query(&userDao.FilterUser{
+		ID: []uint{uid},
+	})
+	if err != nil {
+		logger.Log.Warn("query user error", zap.Uint("id", uid), zap.Error(err))
+		return nil
+	}
+	user, ok := raw.([]*model.User)
+	if !ok || len(user) <= 0 {
+		logger.Log.Warn("query user error", zap.Uint("id", uid), zap.Error(err))
+		return nil
+	}
+
+	return user[0]
 }

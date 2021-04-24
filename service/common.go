@@ -17,6 +17,7 @@ type Service interface {
 	GenerateVCode() (key string)
 	GetVImage(key string, typ vcode.VImageTyp) (outStream io.ReadCloser)
 	VerifyCode(key string, vCode int) bool
+	GetImage(url string) (outStream io.ReadCloser)
 }
 
 type service struct {
@@ -90,4 +91,13 @@ func (s *service)VerifyCode(key string, vCode int) bool {
 	}
 
 	return true
+}
+
+func (s *service) GetImage(url string) (outStream io.ReadCloser) {
+	f, err := os.Open(url)
+	if err != nil {
+		logger.Log.Warn("get image error", zap.String("url", url), zap.Error(err))
+	}
+
+	return f
 }

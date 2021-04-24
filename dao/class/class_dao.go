@@ -15,7 +15,7 @@ type classDao struct {
 }
 
 type FilterClass struct {
-	dao.BaseFilter
+	*dao.BaseFilter
 	Id []uint
 	ClassNo []string
 }
@@ -34,7 +34,7 @@ func (c classDao) Query(filter dao.Filter) (interface{}, error) {
 	if !ok {
 		return nil, gorm.ErrInvalidData
 	}
-	db := c.SQL
+	db := c.SQL.Model(&model.Class{})
 	if len(classFilter.ClassNo) > 0 {
 		db = db.Where("class_no in (?)", classFilter.ClassNo)
 	}
@@ -45,10 +45,12 @@ func (c classDao) Query(filter dao.Filter) (interface{}, error) {
 	default:
 		db = db.Where("id in (?)", classFilter.Id)
 	}
-	if classFilter.Sort != nil {
-		db = db.Order(classFilter.OrderBy())
+	if classFilter.BaseFilter != nil {
+		if classFilter.Sort != nil {
+			db = db.Order(classFilter.OrderBy())
+		}
+		db = db.Scopes(filter.PageScope)
 	}
-	db = db.Scopes(filter.PageScope)
 
 	var data []*model.Class
 	return data, db.Find(&data).Error

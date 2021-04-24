@@ -51,12 +51,16 @@ type CommonHandler struct {
 	Srv     commonSrv.Service
 }
 
-func (h *CommonHandler) RegisterCommonHandles(rg *gin.RouterGroup) {
+func (h *CommonHandler) RegisterCommonHandles(rg *gin.RouterGroup, authRg *gin.RouterGroup) {
 	// the RouterGroup rg mustn't be Authenticate
 	{
 		rg.POST("/vcode/key", h.sendVerifyCodeKey)
 		rg.POST("/vcode/resource", h.getVImage)
 		rg.POST("/vcode/verify", h.verifyCode)
+	}
+	// the RouterGroup hRg must be Authenticate
+	{
+		authRg.POST("/image", h.getImage)
 	}
 }
 
@@ -83,7 +87,6 @@ func (h *CommonHandler) getVImage(ctx *gin.Context) {
 	stream := h.Srv.GetVImage(req.Key, vcode.VImageTyp(req.Typ))
 	if stream == nil {
 		ctx.JSON(http.StatusBadRequest, NewResp(srverr.ErrSystemException, nil))
-		ctx.Abort()
 		return
 	}
 
@@ -94,14 +97,27 @@ func (h *CommonHandler) verifyCode(ctx *gin.Context) {
 	var req VerifyCodeReq
 	if err := ctx.ShouldBindJSON(&req); err != nil || !req.Valid() {
 		ctx.JSON(http.StatusBadRequest, NewResp(srverr.ErrInvalidParams, nil))
-		ctx.Abort()
 		return
 	}
 	if !h.Srv.VerifyCode(req.Key, req.Code) {
 		ctx.JSON(http.StatusBadRequest, NewResp(srverr.ErrVerify, nil))
-		ctx.Abort()
 		return
 	}
 
 	ctx.JSON(http.StatusOK, NewResp(nil, nil))
+}
+
+func (h *CommonHandler) getImage(ctx *gin.Context) {
+	var req *GetImageReq
+	if err := ctx.BindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, NewResp(srverr.ErrInvalidParams, nil))
+		return
+	}
+	stream := h.Srv.GetImage(req.Url)
+	if stream == nil {
+		ctx.JSON(http.StatusBadRequest, NewResp(srverr.ErrInvalidParams, nil))
+		return
+	}
+
+	Transfer(stream, ctx, 10 * model.KB)
 }

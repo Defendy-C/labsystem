@@ -37,3 +37,7 @@ func (req *VerifyCodeReq)Valid() bool  {
 
 	return true
 }
+
+type GetImageReq struct {
+	Url string `json:"url"`
+}
